@@ -1,7 +1,7 @@
 //
-// ASON - A Simpler Object Notation
+// ASON - Accurately Serialized Object Notation
 //
-// Like JSON, but produces more readable output. Rhymes with "mason".
+// Like JSON, but produces more readable (and portable) output. Rhymes with "mason".
 //
 // const o = { a: 1, b: [2, 3] };
 // JSON.stringify(o) => '{"a":1,"b":[2,3]}'
@@ -13,6 +13,9 @@
 // ason.stringify(new Date()) => 'new Date("2017-08-29 11:27:45.647Z") ("T" is removed for readability)
 // ason.stringify(-0) => '-0'
 // ason.stringify(Infinity) => 'Infinity'
+//
+// TODO functions might be better not serialized, or maybe it should be an option.
+// Let's look into this.
 // ason.stringify(function(x) { return x; }) => 'function (x) {return x;}'
 //
 // Symbols are not supported. Yet.

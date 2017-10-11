@@ -12,7 +12,8 @@
     "koa": "^2.3.0",
     "koa-mount": "^3.0.0",
     "koa-static": "^4.0.1",
-    "koa-websocket": "^4.0.0"
+    "koa-websocket": "^4.0.0",
+    "relaxed-json": "^1.0.1"
   },
   "devDependencies": {
     "jest": "^21.2.1",
