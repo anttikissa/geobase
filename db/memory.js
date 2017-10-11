@@ -40,12 +40,6 @@ class MemoryDb {
 	}
 
 	static checkBounds(location, props) {
-		// TODO belongs somewhere else, like using a separate
-		// map for each type
-		if (location.type !== props.type) {
-			return false;
-		}
-
 		return props.minLat <= location.lat && location.lat <= props.maxLat &&
 			props.minLong <= location.long && location.long <= props.maxLong;
 	}
@@ -92,7 +86,7 @@ class MemoryDb {
 
 		const changesWithTypeAndId = Object.assign({ type: object.type, id: object.id }, changes);
 
-		for (const [listener, props] of this.getListeners(object.type).entries()) {
+		for (const [listener, props] of this.getListeners(object.type)) {
 
 			// If object was moved, we need to check the old and new location for listener bounds.
 			// And in that case, we don't need to take into account the possibility that object
@@ -133,7 +127,7 @@ class MemoryDb {
 			return;
 		}
 
-		for (const [listener, props] of this.getListeners(type).entries()) {
+		for (const [listener, props] of this.getListeners(type)) {
 			if (MemoryDb.checkBounds(object, props)) {
 				listener.onDelete && listener.onDelete(object);
 			}
