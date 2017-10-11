@@ -29,6 +29,14 @@ ws.onmessage = (ev) => {
 	log('<', ev.data);
 };
 
+ws.onclose = (status) => {
+	log('WebSocket close');
+	// TODO make a better reconnect mechanism
+	setTimeout(() => {
+		window.location.reload()
+	}, 2000);
+};
+
 ws.onerror = (err) => {
 	log('WebSocket error', err);
 };
