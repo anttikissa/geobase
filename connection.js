@@ -1,5 +1,6 @@
 const log = require('./util/log');
 const MemoryDb = require('./db/memory');
+const protocol = require('./util/protocol');
 
 const db = new MemoryDb();
 
@@ -14,7 +15,7 @@ class Connection {
 	set active(value) {
 		this._active = value;
 		if (!value) {
-			// db.removeListener(this);
+			db.removeListener(this);
 		}
 	}
 
@@ -27,7 +28,7 @@ class Connection {
 		this.active = true;
 		this.prefix = `[${this.idx}]`;
 
-		log(this.prefix, `connected (${connections} clients connected)`);
+		this.log(`New connection (${connections} clients connected)`);
 
 		this.ws.on('message', (message) => this.onMessage(message));
 		this.ws.on('close', (status) => this.onClose(status));
@@ -38,11 +39,30 @@ class Connection {
 		this.ping();
 	}
 
-	onMessage(message) {
-		log(this.prefix, message);
+	log(...args) {
+		log(this.prefix, ...args);
+	}
 
-		if (message.startsWith('PING')) {
-			this.send('PONG');
+	onMessage(message) {
+		let parsed;
+
+		try {
+			parsed = protocol.parse(message);
+		} catch (err) {
+			this.send('ERROR', { message: 'Could not parse message', whatYouSaid: message });
+			return;
+		}
+
+		const { cmd, data } = parsed;
+
+		if (data != null) {
+			this.log('<', cmd, data);
+		} else {
+			this.log('<', cmd);
+		}
+
+		if (cmd === 'PING') {
+			this.send('PONG', data);
 		}
 	}
 
@@ -50,19 +70,25 @@ class Connection {
 		// Status tends to be 1006
 		connections--;
 		this.active = false;
-		log(this.prefix, 'closed');
+		this.log('closed');
 	}
 
-	send(message) {
+	send(cmd, data) {
 		if (!this.active) {
-			log(this.prefix, 'Cannot send to closed socket');
+			this.log('Cannot send to closed socket');
 			return;
 		}
 
+		if (data != null) {
+			this.log('>', cmd, data);
+		} else {
+			this.log('>', cmd);
+		}
+
 		try {
-			this.ws.send(message);
+			this.ws.send(protocol.stringify(cmd, data));
 		} catch (err) {
-			log(this.prefix, 'Sending message failed');
+			this.log('Sending message failed');
 			connections--;
 			this.active = false;
 		}
@@ -73,14 +99,14 @@ class Connection {
 			return;
 		}
 
-		this.send('PING ' + this.pingIdx++);
+		this.send('PING', this.pingIdx++);
 		setTimeout(() => {
 			this.ping();
-		}, 1000);
+		}, 10000);
 	}
 
 	hello() {
-		this.send('HELLO');
+		this.send('HELLO', { message: "How may I serve you?" });
 	}
 }
 

@@ -22,7 +22,7 @@ const protocol = {
 
 	stringify: (cmd, data) => {
 		cmd = cmd.trim().toUpperCase();
-		if (data) {
+		if (data != null) {
 			return `${cmd} ${JSON.stringify(data)}`;
 		} else {
 			return cmd;
