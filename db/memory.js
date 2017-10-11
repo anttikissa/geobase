@@ -3,26 +3,40 @@ let checkType = require('../util/checkType');
 // In-memory implementation of database
 
 class MemoryDb {
+	getObjects(type) {
+		if (this.objects[type]) {
+			return this.objects[type];
+		}
+		return this.objects[type] = new Map;
+	}
+
+	getListeners(type) {
+		if (this.listeners[type]) {
+			return this.listeners[type];
+		}
+		return this.listeners[type] = new Map;
+	}
+
 	constructor() {
-		// TODO these don't care about the type at all, yet
-		this.objects = new Map();
-		this.listeners = new Map();
+		// Objects and listeners are indexed by type
+		this.objects = {};
+		this.listeners = {};
 	}
 
 	// Set up listener 'listener' to receive updates based on type and region.
 	// If it already exists, just update its listening profile.
-	addListener(listener, { type, minLat, maxLat, minLong, maxLong }) {
+	addListener(listener, type, { minLat, maxLat, minLong, maxLong }) {
 		checkType(type, 'string', 'type');
 		checkType(minLat, 'number', 'minLat');
 		checkType(maxLat, 'number', 'maxLat');
 		checkType(minLong, 'number', 'minLong');
 		checkType(maxLong, 'number', 'maxLong');
 
-		this.listeners.set(listener, { type, minLat, maxLat, minLong, maxLong });
+		this.getListeners(type).set(listener, { type, minLat, maxLat, minLong, maxLong });
 	}
 
-	removeListener(listener) {
-		this.listeners.delete(listener);
+	removeListener(listener, type) {
+		this.getListeners(type).delete(listener);
 	}
 
 	static checkBounds(location, props) {
@@ -32,18 +46,14 @@ class MemoryDb {
 			return false;
 		}
 
-		if (props.minLat <= location.lat && location.lat <= props.maxLat &&
-			props.minLong <= location.long && location.long <= props.maxLong) {
-			return true;
-		}
-
-		return false;
+		return props.minLat <= location.lat && location.lat <= props.maxLat &&
+			props.minLong <= location.long && location.long <= props.maxLong;
 	}
 
 	// Report changed and new properties
 	static objectDiff(before, after) {
 		let result = {};
-		for (const key in after) {
+		for (const key of Object.keys(after)) {
 			if (typeof before[key] === 'undefined' || before[key] !== after[key]) {
 				result[key] = after[key];
 			}
@@ -56,7 +66,7 @@ class MemoryDb {
 		checkType(object.id, 'number', 'id');
 
 		let changes = object;
-		const existingObject = this.objects.get(object.id);
+		const existingObject = this.getObjects(object.type).get(object.id);
 		let objectWasMoved = false;
 		let originalLocation; // Only if we had an object before. Needed if it was moved.
 		if (existingObject) {
@@ -70,7 +80,7 @@ class MemoryDb {
 			checkType(object.lat, 'number', 'lat');
 			checkType(object.long, 'number', 'long');
 
-			this.objects.set(object.id, object);
+			this.getObjects(object.type).set(object.id, object);
 		}
 
 		const objectWasCreated = !existingObject;
@@ -82,7 +92,7 @@ class MemoryDb {
 
 		const changesWithTypeAndId = Object.assign({ type: object.type, id: object.id }, changes);
 
-		for (const [listener, props] of this.listeners.entries()) {
+		for (const [listener, props] of this.getListeners(object.type).entries()) {
 
 			// If object was moved, we need to check the old and new location for listener bounds.
 			// And in that case, we don't need to take into account the possibility that object
@@ -114,7 +124,8 @@ class MemoryDb {
 		checkType(type, 'string', 'type');
 		checkType(id, 'number', 'id');
 
-		const object = this.objects.get(id);
+		let objects = this.getObjects(type);
+		const object = objects.get(id);
 
 		if (!object) {
 			// Don't complain of deleting nonexisting object, but don't broadcast
@@ -122,11 +133,13 @@ class MemoryDb {
 			return;
 		}
 
-		for (const [listener, props] of this.listeners.entries()) {
+		for (const [listener, props] of this.getListeners(type).entries()) {
 			if (MemoryDb.checkBounds(object, props)) {
 				listener.onDelete && listener.onDelete(object);
 			}
 		}
+
+		objects.delete(id);
 	}
 }
 
