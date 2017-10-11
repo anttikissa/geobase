@@ -66,6 +66,10 @@ class MemoryDb {
 
 			Object.assign(existingObject, object);
 		} else {
+			// New object: must have lat, long to be indexed
+			checkType(object.lat, 'number', 'lat');
+			checkType(object.long, 'number', 'long');
+
 			this.objects.set(object.id, object);
 		}
 
@@ -75,6 +79,8 @@ class MemoryDb {
 		if (Object.keys(changes).length === 0) {
 			return;
 		}
+
+		const changesWithTypeAndId = Object.assign({ type: object.type, id: object.id }, changes);
 
 		for (const [listener, props] of this.listeners.entries()) {
 
@@ -88,18 +94,20 @@ class MemoryDb {
 				if (listenerWithinBoundsNow || listenerWithinBoundsBefore) {
 					// When the listener hears about the object first time, i.e. listenerWithinBoundsBefore
 					// is not true, we must send them the whole object instead of just the changes.
-					listener.onUpdate && listener.onUpdate(listenerWithinBoundsBefore ? changes : object);
+					listener.onUpdate && listener.onUpdate(listenerWithinBoundsBefore ? changesWithTypeAndId : object);
 				}
 			} else {
 				if (MemoryDb.checkBounds(object, props)) {
 					if (objectWasCreated) {
 						listener.onCreate && listener.onCreate(object);
 					} else {
-						listener.onUpdate && listener.onUpdate(changes);
+						listener.onUpdate && listener.onUpdate(changesWithTypeAndId);
 					}
 				}
 			}
 		}
+
+		return { created: objectWasCreated, moved: objectWasMoved, object: object, changes: changes };
 	}
 
 	deleteObject({ type, id }) {

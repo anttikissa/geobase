@@ -120,7 +120,7 @@ test('changing listener bounds', () => {
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
 });
 
-test('changing only broadcasts changed properties', () => {
+test('changing only broadcasts changed properties and type and id', () => {
 	const listener = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn()
@@ -140,12 +140,12 @@ test('changing only broadcasts changed properties', () => {
 	// Adding new property
 	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello', orders: 123 });
 	expect(listener.onUpdate.mock.calls.length).toBe(1);
-	expect(listener.onUpdate.mock.calls[0][0]).toEqual({ orders: 123 });
+	expect(listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, orders: 123 });
 
 	// Changing existing property
 	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello yo', orders: 124 });
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
-	expect(listener.onUpdate.mock.calls[1][0]).toEqual({ name: 'Hello yo', orders: 124 });
+	expect(listener.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 123, name: 'Hello yo', orders: 124 });
 });
 
 test('changing object location', () => {
@@ -170,13 +170,13 @@ test('changing object location', () => {
 	db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'New name' });
 
 	expect(region1Listener.onUpdate.mock.calls.length).toBe(1);
-	expect(region1Listener.onUpdate.mock.calls[0][0]).toEqual({ lat: 6, name: 'New name' });
+	expect(region1Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 6, name: 'New name' });
 
 	// Move object from region to another
 	db.updateObject({ type: 'a', id: 123, lat: 15, long: 15, name: 'New name' });
 
 	expect(region1Listener.onUpdate.mock.calls.length).toBe(2);
-	expect(region1Listener.onUpdate.mock.calls[1][0]).toEqual({ lat: 15, long: 15 });
+	expect(region1Listener.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15 });
 
 	// New listener must be called with all object properties
 	expect(region2Listener.onUpdate.mock.calls.length).toBe(1);

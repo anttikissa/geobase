@@ -44,15 +44,34 @@ ws.onerror = (err) => {
 	log('WebSocket error', err);
 };
 
-const history = [];
-let currentHistoryPos = 0;
+let history = [];
+try {
+	history = JSON.parse(localStorage.history);
+} catch (err) {
+
+}
+let currentHistoryPos = history.length;
+
+function pushHistory(value) {
+	if (!value) {
+		return;
+	}
+
+	history.push(value);
+	if (history.length > 100) {
+		history.shift();
+	}
+	localStorage.history = JSON.stringify(history);
+}
 
 // Input
 const cmd = $('.cmd');
+
 cmd.addEventListener('keyup', (ev) => {
 	if (ev.keyCode === 13) {
+		pushHistory(cmd.value);
 		send(cmd.value);
-		history.push(cmd.value);
+
 		currentHistoryPos = history.length;
 
 		cmd.value = '';
@@ -61,6 +80,10 @@ cmd.addEventListener('keyup', (ev) => {
 	console.log(ev.keyCode);
 
 	if (ev.keyCode === 38) {
+		if (cmd.value !== history[currentHistoryPos]) {
+			pushHistory(cmd.value);
+		}
+
 		currentHistoryPos--;
 		if (history[currentHistoryPos]) {
 			cmd.value = history[currentHistoryPos];

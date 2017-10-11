@@ -61,9 +61,36 @@ class Connection {
 			this.log('<', cmd);
 		}
 
-		if (cmd === 'PING') {
-			this.send('PONG', data);
+		this.handleCommand(cmd, data);
+	}
+
+	handleCommand(cmd, data) {
+		try {
+			if (cmd === 'PING') {
+				this.send('PONG', data);
+			} else if (cmd === 'UPDATEME') {
+				db.addListener(this, data || {});
+				this.send('OK', "I'll keep you posted, dear.");
+			} else if (cmd === 'UPDATE') {
+				let result = db.updateObject(data);
+				this.send('UPDATED', result);
+			}
+		} catch (err) {
+			log('err', err);
+			this.send('ERROR', { message: 'Could not do that', reason: err.message });
 		}
+	}
+
+	onCreate(obj) {
+		this.send('CREATE', obj);
+	}
+
+	onUpdate(obj) {
+		this.send('UPDATE', obj);
+	}
+
+	onDelete(obj) {
+		this.send('DELETE', obj);
 	}
 
 	onClose(status) {
