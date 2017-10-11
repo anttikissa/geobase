@@ -12,7 +12,11 @@
     "koa": "^2.3.0",
     "koa-mount": "^3.0.0",
     "koa-static": "^4.0.1",
-    "koa-websocket": "^4.0.0",
-    "sane": "^2.2.0"
+    "koa-websocket": "^4.0.0"
+  },
+  "devDependencies": {
+    "jest": "^21.2.1",
+    "sane": "^2.2.0",
+    "ws": "^3.2.0"
   }
 }

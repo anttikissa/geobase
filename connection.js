@@ -1,9 +1,23 @@
 const log = require('./util/log');
+const MemoryDb = require('./db/memory');
+
+const db = new MemoryDb();
 
 let connections = 0;
 let connectionIdx = 0;
 
 class Connection {
+	get active() {
+		return this._active;
+	}
+
+	set active(value) {
+		this._active = value;
+		if (!value) {
+			// db.removeListener(this);
+		}
+	}
+
 	constructor(ws) {
 		this.ws = ws;
 
@@ -70,7 +84,7 @@ class Connection {
 	}
 }
 
-module.exports = async (ctx) => {
+async function acceptConnection(ctx) {
 	if (ctx.path !== '/events') {
 		log('Unknown socket connection. No idea what to do with this');
 
@@ -79,4 +93,6 @@ module.exports = async (ctx) => {
 	}
 
 	new Connection(ctx.websocket);
-};
+}
+
+module.exports = acceptConnection;

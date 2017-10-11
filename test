@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cd $(dirname $0)
+export PATH=$PATH:./node_modules/.bin
+
+GEOBASE_PORT=3333 ./start &
+
+jest
+
+curl http://localhost:3333/kill
