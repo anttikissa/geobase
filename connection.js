@@ -43,7 +43,7 @@ class Connection {
 		log(this.prefix, ...args);
 	}
 
-	onMessage(message) {
+	async onMessage(message) {
 		let parsed;
 
 		try {
@@ -61,18 +61,24 @@ class Connection {
 			this.log('<', cmd);
 		}
 
-		this.handleCommand(cmd, data);
+		await this.handleCommand(cmd, data);
 	}
 
-	handleCommand(cmd, data) {
+	async handleCommand(cmd, data) {
 		try {
 			if (cmd === 'PING') {
 				this.send('PONG', data);
 			} else if (cmd === 'UPDATEME') {
-				db.addListener(this, data || {});
+				if (!data || !data.type) {
+					throw new Error('type required');
+				}
+
+				const { type, ...bounds } = data;
+
+				db.addListener(this, type, bounds);
 				this.send('OK', "I'll keep you posted, dear.");
 			} else if (cmd === 'UPDATE') {
-				let result = db.updateObject(data);
+				let result = await db.updateObject(data);
 				this.send('UPDATED', result);
 			}
 		} catch (err) {

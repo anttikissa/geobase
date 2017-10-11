@@ -3,7 +3,7 @@ let checkType = require('../util/checkType');
 // In-memory implementation of database
 
 class MemoryDb {
-	getObjects(type) {
+	async getObjects(type) {
 		if (this.objects[type]) {
 			return this.objects[type];
 		}
@@ -55,12 +55,12 @@ class MemoryDb {
 		return result;
 	}
 
-	updateObject(object) {
+	async updateObject(object) {
 		checkType(object.type, 'string', 'type');
 		checkType(object.id, 'number', 'id');
 
 		let changes = object;
-		const existingObject = this.getObjects(object.type).get(object.id);
+		const existingObject = (await this.getObjects(object.type)).get(object.id);
 		let objectWasMoved = false;
 		let originalLocation; // Only if we had an object before. Needed if it was moved.
 		if (existingObject) {
@@ -74,7 +74,7 @@ class MemoryDb {
 			checkType(object.lat, 'number', 'lat');
 			checkType(object.long, 'number', 'long');
 
-			this.getObjects(object.type).set(object.id, object);
+			(await this.getObjects(object.type)).set(object.id, object);
 		}
 
 		const objectWasCreated = !existingObject;
@@ -114,11 +114,11 @@ class MemoryDb {
 		return { created: objectWasCreated, moved: objectWasMoved, object: object, changes: changes };
 	}
 
-	deleteObject({ type, id }) {
+	async deleteObject({ type, id }) {
 		checkType(type, 'string', 'type');
 		checkType(id, 'number', 'id');
 
-		let objects = this.getObjects(type);
+		let objects = await this.getObjects(type);
 		const object = objects.get(id);
 
 		if (!object) {

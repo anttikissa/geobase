@@ -8,7 +8,7 @@ beforeEach(() => {
 
 const mapSize = (map) => [...map.keys()].length;
 
-test('add listener', () => {
+test('add listener', async () => {
 	const connection = {};
 
 	expect(mapSize(db.getListeners('a'))).toBe(0);
@@ -18,10 +18,9 @@ test('add listener', () => {
 	expect(mapSize(db.getListeners('a'))).toBe(1);
 	db.removeListener(connection, 'a');
 	expect(mapSize(db.getListeners('a'))).toBe(0);
-
 });
 
-test('add listener params', () => {
+test('add listener params', async () => {
 	const listener = {};
 
 	expect(() => {
@@ -38,7 +37,7 @@ test('add listener params', () => {
 	}).toThrow('maxLat is not of type number: undefined');
 });
 
-test('listener is called when object is updated', () => {
+test('listener is called when object is updated', async () => {
 	const listener1 = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn()
@@ -59,23 +58,23 @@ test('listener is called when object is updated', () => {
 	db.addListener(listener2, 'a', { minLat: 9, maxLat: 10, minLong: 0, maxLong: 10 });
 	db.addListener(listener3, 'a', { minLat: 5, maxLat: 5, minLong: 5, maxLong: 5 });
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 
 	expect(listener1.onCreate.mock.calls.length).toBe(1);
 	expect(listener2.onCreate.mock.calls.length).toBe(0);
 	expect(listener3.onCreate.mock.calls.length).toBe(1);
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 2' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 2' });
 
 	expect(listener1.onCreate.mock.calls.length).toBe(1);
 	expect(listener1.onUpdate.mock.calls.length).toBe(1);
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 
 	expect(listener1.onUpdate.mock.calls.length).toBe(2);
 });
 
-test('object lifecycle including deletion', () => {
+test('object lifecycle including deletion', async () => {
 	const listener = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn(),
@@ -85,23 +84,23 @@ test('object lifecycle including deletion', () => {
 	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 
 	// Object is created, updated twice, then deleted
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Moi' });
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Another' });
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Third' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Moi' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Another' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Third' });
 
-	expect(mapSize(db.getObjects('a'))).toBe(1);
-	db.deleteObject({ type: 'a', id: 123 });
+	expect(mapSize(await db.getObjects('a'))).toBe(1);
+	await db.deleteObject({ type: 'a', id: 123 });
 
-	expect(mapSize(db.getObjects('a'))).toBe(0);
+	expect(mapSize(await db.getObjects('a'))).toBe(0);
 	// This ensures it gets created again
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Third' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Third' });
 
 	expect(listener.onCreate.mock.calls.length).toBe(2);
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
 	expect(listener.onDelete.mock.calls.length).toBe(1);
 });
 
-test('changing listener bounds', () => {
+test('changing listener bounds', async () => {
 	const listener = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn()
@@ -109,24 +108,24 @@ test('changing listener bounds', () => {
 
 	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
-	db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'Hello 1' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
+	await db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'Hello 1' });
 
 	expect(listener.onCreate.mock.calls.length).toBe(1);
 	expect(listener.onUpdate.mock.calls.length).toBe(1);
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 2' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 2' });
 
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
 
 	// Change listener bounds so update doesn't get called any more
 	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 7, maxLong: 17 });
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 3' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 3' });
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
 });
 
-test('changing only broadcasts changed properties and type and id', () => {
+test('changing only broadcasts changed properties and type and id', async () => {
 	const listener = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn()
@@ -134,27 +133,27 @@ test('changing only broadcasts changed properties and type and id', () => {
 
 	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 	expect(listener.onCreate.mock.calls.length).toBe(1);
 	expect(listener.onCreate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 
 	// Not changing anything:
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 	expect(listener.onCreate.mock.calls.length).toBe(1);
 	expect(listener.onCreate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 
 	// Adding new property
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello', orders: 123 });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello', orders: 123 });
 	expect(listener.onUpdate.mock.calls.length).toBe(1);
 	expect(listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, orders: 123 });
 
 	// Changing existing property
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello yo', orders: 124 });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello yo', orders: 124 });
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
 	expect(listener.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 123, name: 'Hello yo', orders: 124 });
 });
 
-test('changing object location', () => {
+test('changing object location', async () => {
 	const region1Listener = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn()
@@ -168,18 +167,18 @@ test('changing object location', () => {
 	db.addListener(region1Listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 	db.addListener(region2Listener, 'a', { minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 });
 
-	db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'X' });
+	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'X' });
 
 	expect(region1Listener.onCreate.mock.calls.length).toBe(1);
 
 	// Move object within one region
-	db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'New name' });
+	await db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'New name' });
 
 	expect(region1Listener.onUpdate.mock.calls.length).toBe(1);
 	expect(region1Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 6, name: 'New name' });
 
 	// Move object from region to another
-	db.updateObject({ type: 'a', id: 123, lat: 15, long: 15, name: 'New name' });
+	await db.updateObject({ type: 'a', id: 123, lat: 15, long: 15, name: 'New name' });
 
 	expect(region1Listener.onUpdate.mock.calls.length).toBe(2);
 	expect(region1Listener.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15 });
@@ -189,7 +188,7 @@ test('changing object location', () => {
 	expect(region2Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15, name: 'New name' });
 });
 
-test('different kinds of objects do not affect each other', () => {
+test('different kinds of objects do not affect each other', async () => {
 	const typeAListener = {
 		onCreate: jest.fn(),
 		onUpdate: jest.fn(),
@@ -206,9 +205,9 @@ test('different kinds of objects do not affect each other', () => {
 	db.addListener(typeBListener, 'b', { minLat: 5, maxLat: 15, minLong: 5, maxLong: 15 });
 
 	// Objects with the same ids should live in separate realms
-	db.updateObject({ type: 'a', id: 123, lat: 7, long: 7, name: 'Name A' });
-	db.updateObject({ type: 'b', id: 123, lat: 7, long: 7, name: 'Name B' });
-	db.updateObject({ type: 'c', id: 123, lat: 7, long: 7, name: 'Name C' });
+	await db.updateObject({ type: 'a', id: 123, lat: 7, long: 7, name: 'Name A' });
+	await db.updateObject({ type: 'b', id: 123, lat: 7, long: 7, name: 'Name B' });
+	await db.updateObject({ type: 'c', id: 123, lat: 7, long: 7, name: 'Name C' });
 
 	expect(typeAListener.onCreate.mock.calls.length).toBe(1);
 	expect(typeAListener.onCreate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 7, long: 7, name: 'Name A' });
@@ -216,16 +215,16 @@ test('different kinds of objects do not affect each other', () => {
 	expect(typeBListener.onCreate.mock.calls.length).toBe(1);
 	expect(typeBListener.onCreate.mock.calls[0][0]).toEqual({ type: 'b', id: 123, lat: 7, long: 7, name: 'Name B' });
 
-	db.updateObject({ type: 'a', id: 123, lat: 7, long: 8, name: 'Name A', changed: 1 });
-	db.updateObject({ type: 'b', id: 123, lat: 7, long: 9, name: 'Name B', changed: 2 });
-	db.updateObject({ type: 'c', id: 123, lat: 7, long: 6, name: 'Name C', changed: 3 });
+	await db.updateObject({ type: 'a', id: 123, lat: 7, long: 8, name: 'Name A', changed: 1 });
+	await db.updateObject({ type: 'b', id: 123, lat: 7, long: 9, name: 'Name B', changed: 2 });
+	await db.updateObject({ type: 'c', id: 123, lat: 7, long: 6, name: 'Name C', changed: 3 });
 
 	expect(typeAListener.onUpdate.mock.calls.length).toBe(1);
 	expect(typeAListener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, long: 8, changed: 1 });
 	expect(typeBListener.onUpdate.mock.calls.length).toBe(1);
 	expect(typeBListener.onUpdate.mock.calls[0][0]).toEqual({ type: 'b', id: 123, long: 9, changed: 2 });
 
-	db.deleteObject({ type: 'a', id: 123 });
+	await db.deleteObject({ type: 'a', id: 123 });
 	expect(typeAListener.onDelete.mock.calls.length).toBe(1);
 	expect(typeBListener.onDelete.mock.calls.length).toBe(0);
 });

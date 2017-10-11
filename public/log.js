@@ -28,8 +28,6 @@ function appendToLogEl(line) {
 	}
 }
 
-document.body.addEventListener('click', (e) => log(e));
-
 export const log = (...args) => {
 	const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
 	const line = [now, ...args];
