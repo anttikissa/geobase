@@ -1,0 +1,10 @@
+#!/bin/bash
+
+while true
+do
+	node server.js
+	if [ "$?" != "2" ]
+	then
+		exit $?
+	fi
+done
