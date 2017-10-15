@@ -68,8 +68,13 @@ class Connection {
 		try {
 			if (cmd === 'PING') {
 				this.send('PONG', data);
-			} else if (cmd === 'UPDATEME') {
-				if (!data || !data.type) {
+			} else if (cmd === 'LISTEN') {
+				if (!data) {
+					let listeners = db.getAllListeningTypes().map(type => db.getListener(this, type));
+					this.send('OK', listeners.filter(Boolean));
+					return;
+				}
+				if (data && !data.type) {
 					throw new Error('type required');
 				}
 
@@ -77,9 +82,33 @@ class Connection {
 
 				db.addListener(this, type, bounds);
 				this.send('OK', "I'll keep you posted, dear.");
+			} else if (cmd === 'GET') {
+				const { type, id, ...bounds } = data;
+				let result;
+				if (id) {
+					result = await db.getOne(type, id);
+				} else {
+					result = await db.getAll(type, bounds);
+				}
+				this.send(result ? 'DATA' : 'NOTFOUND', result);
 			} else if (cmd === 'UPDATE') {
 				let result = await db.updateObject(data);
-				this.send('UPDATED', result);
+				this.send(result.created ? 'CREATED' : 'UPDATED', result);
+			} else if (cmd === 'DELETE') {
+				let result = await db.deleteObject(data);
+				this.send(result.deleted ? 'DELETED' : 'NOTFOUND', result);
+			} else if (cmd === 'TEST') {
+				for (var i = 0; i < 10; i++) {
+					for (var j = 0; j < 10; j++) {
+						await db.updateObject({
+							type: 'a',
+							id: i * 10 + j,
+							lat: i,
+							long: j,
+							name: `${i} ${j} ${Math.random()}`
+						});
+					}
+				}
 			}
 		} catch (err) {
 			log('err', err);

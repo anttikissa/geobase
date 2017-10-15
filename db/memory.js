@@ -1,13 +1,44 @@
 let checkType = require('../util/checkType');
 
+let log = require('../util/log');
+
 // In-memory implementation of database
 
 class MemoryDb {
-	async getObjects(type) {
-		if (this.objects[type]) {
-			return this.objects[type];
+	// (Internal) return map of all objects
+	getObjects(type) {
+		if (!this.objects[type]) {
+			this.objects[type] = new Map;
 		}
-		return this.objects[type] = new Map;
+		return this.objects[type];
+	}
+
+	// Get object
+	async getOne(type, id) {
+		return this.getObjects(type).get(id);
+	}
+
+	// Return array of objects filtered by bounds (optionally)
+	async getAll(type, bounds) {
+		const objects = this.getObjects(type);
+		const values = [...objects.values()];
+
+		if (!bounds) {
+			return values;
+		} else {
+			const filtered = values.filter(value => {
+				if (bounds.hasOwnProperty('minLat') != null && value.lat < bounds.minLat)
+					return false;
+				if (bounds.hasOwnProperty('maxLat') != null && value.lat > bounds.maxLat)
+					return false;
+				if (bounds.hasOwnProperty('minLong') != null && value.long < bounds.minLong)
+					return false;
+				if (bounds.hasOwnProperty('maxLong') != null && value.long > bounds.maxLong)
+					return false;
+				return true;
+			});
+			return filtered;
+		}
 	}
 
 	getListeners(type) {
@@ -15,6 +46,10 @@ class MemoryDb {
 			return this.listeners[type];
 		}
 		return this.listeners[type] = new Map;
+	}
+
+	getAllListeningTypes() {
+		return [...Object.keys(this.listeners)];
 	}
 
 	constructor() {
@@ -25,14 +60,42 @@ class MemoryDb {
 
 	// Set up listener 'listener' to receive updates based on type and region.
 	// If it already exists, just update its listening profile.
+	// When updating an existing listener, you only need to specify the
+	// parameters that changed. (And type.)
 	addListener(listener, type, { minLat, maxLat, minLong, maxLong }) {
-		checkType(type, 'string', 'type');
-		checkType(minLat, 'number', 'minLat');
-		checkType(maxLat, 'number', 'maxLat');
-		checkType(minLong, 'number', 'minLong');
-		checkType(maxLong, 'number', 'maxLong');
+		function cleanObject(obj) {
+			for (let key in obj) {
+				if (obj[key] === undefined) {
+					delete obj[key];
+				}
+			}
+		}
 
-		this.getListeners(type).set(listener, { type, minLat, maxLat, minLong, maxLong });
+		const listenersMap = this.getListeners(type);
+		let existingProps = listenersMap.get(listener);
+		let props = { type, minLat, maxLat, minLong, maxLong };
+		cleanObject(props);
+
+		function check(props) {
+			checkType(props.type, 'string', 'type');
+			checkType(props.minLat, 'number', 'minLat');
+			checkType(props.maxLat, 'number', 'maxLat');
+			checkType(props.minLong, 'number', 'minLong');
+			checkType(props.maxLong, 'number', 'maxLong');
+		}
+
+		if (existingProps) {
+			let updatedProps = Object.assign({}, existingProps, props);
+			check(updatedProps);
+			listenersMap.set(listener, updatedProps);
+		} else {
+			check(props);
+			listenersMap.set(listener, props);
+		}
+	}
+
+	getListener(listener, type) {
+		return this.getListeners(type).get(listener);
 	}
 
 	removeListener(listener, type) {
@@ -81,7 +144,7 @@ class MemoryDb {
 
 		// Object not updated - no need to broadcast
 		if (Object.keys(changes).length === 0) {
-			return;
+			return { created: objectWasCreated, moved: objectWasMoved, object: object, changes: changes };
 		}
 
 		const changesWithTypeAndId = Object.assign({ type: object.type, id: object.id }, changes);
@@ -121,19 +184,21 @@ class MemoryDb {
 		let objects = await this.getObjects(type);
 		const object = objects.get(id);
 
-		if (!object) {
-			// Don't complain of deleting nonexisting object, but don't broadcast
-			// it either (since we don't know its bounds)
-			return;
-		}
-
-		for (const [listener, props] of this.getListeners(type)) {
-			if (MemoryDb.checkBounds(object, props)) {
-				listener.onDelete && listener.onDelete(object);
+		if (object) {
+			for (const [listener, props] of this.getListeners(type)) {
+				if (MemoryDb.checkBounds(object, props)) {
+					listener.onDelete && listener.onDelete(object);
+				}
 			}
+
+			objects.delete(id);
 		}
 
-		objects.delete(id);
+		return {
+			type,
+			id,
+			deleted: object
+		};
 	}
 }
 

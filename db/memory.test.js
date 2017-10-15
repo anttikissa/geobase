@@ -37,6 +37,43 @@ test('add listener params', async () => {
 	}).toThrow('maxLat is not of type number: undefined');
 });
 
+test('getAll', async () => {
+	await db.updateObject({ type: 'a', id: 1, lat: 5, long: 5 });
+	await db.updateObject({ type: 'a', id: 2, lat: 6, long: 6 });
+	await db.updateObject({ type: 'b', id: 3, lat: 6, long: 6 });
+
+	expect(await db.getAll('a')).toEqual([
+		{ type: 'a', id: 1, lat: 5, long: 5 },
+		{ type: 'a', id: 2, lat: 6, long: 6 }
+	]);
+
+	expect(await db.getAll('b')).toEqual([
+		{ type: 'b', id: 3, lat: 6, long: 6 }
+	]);
+
+	expect(await db.getAll('a', { minLong: 5.5 }))
+	.toEqual([{ type: 'a', id: 2, lat: 6, long: 6 }]);
+
+	expect(await db.getAll('a', { minLat: 5.5 }))
+	.toEqual([{ type: 'a', id: 2, lat: 6, long: 6 }]);
+
+	expect(await db.getAll('a', { maxLat: 5.5 }))
+	.toEqual([{ type: 'a', id: 1, lat: 5, long: 5 }]);
+
+	expect(await db.getAll('a', { maxLat: 5.5 }))
+	.toEqual([{ type: 'a', id: 1, lat: 5, long: 5 }]);
+
+	await db.updateObject({ type: 'a', id: 3, lat: 4.7, long: 7 });
+
+	// Combine multiple filters
+	expect(await db.getAll('a', { minLat: 4.5, maxLat: 5.5, minLong: 4.9, maxLong: 7.2  }))
+	.toEqual([
+		{ type: 'a', id: 1, lat: 5, long: 5 },
+		{ type: 'a', id: 3, lat: 4.7, long: 7 }
+	]);
+
+});
+
 test('listener is called when object is updated', async () => {
 	const listener1 = {
 		onCreate: jest.fn(),
