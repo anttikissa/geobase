@@ -48,6 +48,8 @@ class MemoryDb {
 		return this.listeners[type] = new Map;
 	}
 
+	// Return an array of all listener types (so that you can find out all listening properties
+	// of a listener without having to know their types)
 	getAllListeningTypes() {
 		return [...Object.keys(this.listeners)];
 	}
@@ -58,11 +60,27 @@ class MemoryDb {
 		this.listeners = {};
 	}
 
-	// Set up listener 'listener' to receive updates based on type and region.
-	// If it already exists, just update its listening profile.
-	// When updating an existing listener, you only need to specify the
-	// parameters that changed. (And type.)
-	addListener(listener, type, { minLat, maxLat, minLong, maxLong }) {
+	// Let 'listener' to receive updates (.onCreate(), .onUpdate(), .onDelete())
+	// from every object whose type is 'type' and that matches the given geographical range.
+	// All of the properties 'minLat', 'maxLat', 'minLong', and 'maxLong' are mandatory.
+	//
+	// If 'listener' is already listening to 'type', its listening profile is updated. In this
+	// case, you only need to give the properties that you want to change. ('type', though, is
+	// always mandatory.)
+	//
+	// A listener may have multiple listening profiles, but only one per type. I.e. if you call
+	//
+	//   listen(listener, 'a', { minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 };
+	//   listen(listener, 'a', { minLat: 20, maxLat: 30, minLong: 40, maxLong: 50 };
+	//   listen(listener, 'b', { minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 };
+	//
+	// you end up with two listening profiles for listener:
+	//
+	//   { type: 'a', minLat: 20, maxLat: 30, minLong: 40, maxLong: 50 }
+	//   { type: 'b', minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 }
+	//
+	// You can query listening profiles by getListeningProfile(listener, type).
+	listen(listener, type, { minLat, maxLat, minLong, maxLong }) {
 		function cleanObject(obj) {
 			for (let key in obj) {
 				if (obj[key] === undefined) {
@@ -94,11 +112,11 @@ class MemoryDb {
 		}
 	}
 
-	getListener(listener, type) {
+	getListeningProfile(listener, type) {
 		return this.getListeners(type).get(listener);
 	}
 
-	removeListener(listener, type) {
+	stopListening(listener, type) {
 		this.getListeners(type).delete(listener);
 	}
 
@@ -186,9 +204,7 @@ class MemoryDb {
 
 		if (object) {
 			for (const [listener, props] of this.getListeners(type)) {
-				if (MemoryDb.checkBounds(object, props)) {
-					listener.onDelete && listener.onDelete(object);
-				}
+				listener.onDelete && listener.onDelete(object);
 			}
 
 			objects.delete(id);

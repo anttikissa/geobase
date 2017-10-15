@@ -8,60 +8,138 @@ beforeEach(() => {
 
 const mapSize = (map) => [...map.keys()].length;
 
-test('add listener', async () => {
+test('listen', async () => {
 	const connection = {};
+	const connection2 = {};
 
 	expect(mapSize(db.getListeners('a'))).toBe(0);
-	db.addListener(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+
+	db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 	expect(mapSize(db.getListeners('a'))).toBe(1);
-	db.addListener(connection, 'a', { minLat: 5, maxLat: 15, minLong: 0, maxLong: 10 });
+
+	db.listen(connection, 'a', { minLat: 5, maxLat: 15, minLong: 0, maxLong: 10 });
 	expect(mapSize(db.getListeners('a'))).toBe(1);
-	db.removeListener(connection, 'a');
+
+	db.listen(connection2, 'a', { minLat: 5, maxLat: 15, minLong: 0, maxLong: 10 });
+	expect(mapSize(db.getListeners('a'))).toBe(2);
+
+	db.stopListening(connection, 'a');
+	expect(mapSize(db.getListeners('a'))).toBe(1);
+
+	db.stopListening(connection2, 'a');
 	expect(mapSize(db.getListeners('a'))).toBe(0);
 });
 
-test('add listener params', async () => {
+test('getListeningProfile', async () => {
+	const connection = {};
+
+	db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+
+	expect(db.getListeningProfile(connection, 'a')).toEqual({ type: 'a', minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+});
+
+test('listen that changes listener props', async () => {
+	const connection = {};
+
+	db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	expect(db.getListeningProfile(connection, 'a')).toEqual({ type: 'a', minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+
+	db.listen(connection, 'a', { minLat: -5, maxLong: 5 });
+	expect(db.getListeningProfile(connection, 'a')).toEqual({ type: 'a', minLat: -5, maxLat: 10, minLong: 0, maxLong: 5 });
+});
+
+test('listen parameter check', async () => {
 	const listener = {};
 
 	expect(() => {
-		db.addListener(listener, 123, {});
+		db.listen(listener, 123, {});
 	}).toThrow('type is not of type string: 123');
 
 	expect(() => {
-		db.addListener(listener, 'a', { minLat: '5.55' });
+		db.listen(listener, 'a', { minLat: '5.55' });
 	}).toThrow('minLat is not of type number: 5.55');
 
 
 	expect(() => {
-		db.addListener(listener, 'a', { minLat: 5.55 });
+		db.listen(listener, 'a', { minLat: 5.55 });
 	}).toThrow('maxLat is not of type number: undefined');
+
+	// Updating an existing listener, the changing property is checked:
+	db.listen(listener, 'a', { minLat: 0, maxLat: 1, minLong: 0, maxLong: 1 });
+	expect(() => {
+		db.listen(listener, 'a', { maxLong: 'hello' });
+	}).toThrow('maxLong is not of type number: hello');
+});
+
+test('getAllListeningTypes (internal)', async() => {
+	let listener = {};
+
+	expect(db.getAllListeningTypes()).toEqual([]);
+
+	db.listen(listener, 'a', { minLat: 0, maxLat: 1, minLong: 0, maxLong: 1 });
+	expect(db.getAllListeningTypes()).toEqual(['a']);
+
+	db.listen(listener, 'b', { minLat: 0, maxLat: 1, minLong: 0, maxLong: 1 });
+	expect(db.getListeningProfile(listener, 'b')).not.toBe(undefined);
+	expect(db.getAllListeningTypes()).toEqual(['a', 'b']);
+
+	// Even if the last listener stops listening, the type stays
+	db.stopListening(listener, 'b');
+	expect(db.getListeningProfile(listener, 'b')).toBe(undefined);
+	expect(db.getAllListeningTypes()).toEqual(['a', 'b']);
+
+});
+
+test('getOne', async () => {
+	expect(await db.getOne('a', 2)).toEqual(undefined);
+	await db.updateObject({ type: 'a', id: 2, lat: 3, long: 4 });
+	expect(await db.getOne('a', 2)).toEqual({ type: 'a', id: 2, lat: 3, long: 4 });
+	await db.updateObject({ type: 'a', id: 2, lat: 3, long: 5 });
+	expect(await db.getOne('a', 2)).toEqual({ type: 'a', id: 2, lat: 3, long: 5 });
+	await db.deleteObject({ type: 'a', id: 2 });
+	expect(await db.getOne('a', 2)).toEqual(undefined);
+});
+
+test('deleteObject', async () => {
+	db.deleteObject({ type: 'a', id: 2 });
 });
 
 test('getAll', async () => {
 	await db.updateObject({ type: 'a', id: 1, lat: 5, long: 5 });
 	await db.updateObject({ type: 'a', id: 2, lat: 6, long: 6 });
-	await db.updateObject({ type: 'b', id: 3, lat: 6, long: 6 });
+	await db.updateObject({ type: 'a', id: 3, lat: 60, long: 60 });
+	await db.updateObject({ type: 'b', id: 3, lat: 6, long: 7 });
 
 	expect(await db.getAll('a')).toEqual([
 		{ type: 'a', id: 1, lat: 5, long: 5 },
-		{ type: 'a', id: 2, lat: 6, long: 6 }
+		{ type: 'a', id: 2, lat: 6, long: 6 },
+		{ type: 'a', id: 3, lat: 60, long: 60 }
 	]);
 
 	expect(await db.getAll('b')).toEqual([
-		{ type: 'b', id: 3, lat: 6, long: 6 }
+		{ type: 'b', id: 3, lat: 6, long: 7 }
 	]);
 
 	expect(await db.getAll('a', { minLong: 5.5 }))
-	.toEqual([{ type: 'a', id: 2, lat: 6, long: 6 }]);
+	.toEqual([
+		{ type: 'a', id: 2, lat: 6, long: 6 },
+		{ type: 'a', id: 3, lat: 60, long: 60 }
+	]);
 
 	expect(await db.getAll('a', { minLat: 5.5 }))
-	.toEqual([{ type: 'a', id: 2, lat: 6, long: 6 }]);
+	.toEqual([
+		{ type: 'a', id: 2, lat: 6, long: 6 },
+		{ type: 'a', id: 3, lat: 60, long: 60 }
+	]);
 
 	expect(await db.getAll('a', { maxLat: 5.5 }))
 	.toEqual([{ type: 'a', id: 1, lat: 5, long: 5 }]);
 
-	expect(await db.getAll('a', { maxLat: 5.5 }))
-	.toEqual([{ type: 'a', id: 1, lat: 5, long: 5 }]);
+	expect(await db.getAll('a', { maxLong: 20 }))
+	.toEqual([
+		{ type: 'a', id: 1, lat: 5, long: 5 },
+		{ type: 'a', id: 2, lat: 6, long: 6 }
+	]);
 
 	await db.updateObject({ type: 'a', id: 3, lat: 4.7, long: 7 });
 
@@ -91,9 +169,9 @@ test('listener is called when object is updated', async () => {
 	};
 
 	// Listeners 1 and 3 are within the bounds (3 quite strictly)
-	db.addListener(listener1, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
-	db.addListener(listener2, 'a', { minLat: 9, maxLat: 10, minLong: 0, maxLong: 10 });
-	db.addListener(listener3, 'a', { minLat: 5, maxLat: 5, minLong: 5, maxLong: 5 });
+	db.listen(listener1, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(listener2, 'a', { minLat: 9, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(listener3, 'a', { minLat: 5, maxLat: 5, minLong: 5, maxLong: 5 });
 
 	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 
@@ -118,7 +196,7 @@ test('object lifecycle including deletion', async () => {
 		onDelete: jest.fn()
 	};
 
-	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 
 	// Object is created, updated twice, then deleted
 	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Moi' });
@@ -143,7 +221,7 @@ test('changing listener bounds', async () => {
 		onUpdate: jest.fn()
 	};
 
-	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 
 	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 	await db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'Hello 1' });
@@ -156,7 +234,7 @@ test('changing listener bounds', async () => {
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
 
 	// Change listener bounds so update doesn't get called any more
-	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 7, maxLong: 17 });
+	db.listen(listener, 'a', { minLat: 0, maxLat: 10, minLong: 7, maxLong: 17 });
 
 	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello 3' });
 	expect(listener.onUpdate.mock.calls.length).toBe(2);
@@ -168,7 +246,7 @@ test('changing only broadcasts changed properties and type and id', async () => 
 		onUpdate: jest.fn()
 	};
 
-	db.addListener(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
 
 	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'Hello' });
 	expect(listener.onCreate.mock.calls.length).toBe(1);
@@ -201,8 +279,8 @@ test('changing object location', async () => {
 		onUpdate: jest.fn()
 	};
 
-	db.addListener(region1Listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
-	db.addListener(region2Listener, 'a', { minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 });
+	db.listen(region1Listener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(region2Listener, 'a', { minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 });
 
 	await db.updateObject({ type: 'a', id: 123, lat: 5, long: 5, name: 'X' });
 
@@ -238,8 +316,8 @@ test('different kinds of objects do not affect each other', async () => {
 		onDelete: jest.fn()
 	};
 
-	db.addListener(typeAListener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
-	db.addListener(typeBListener, 'b', { minLat: 5, maxLat: 15, minLong: 5, maxLong: 15 });
+	db.listen(typeAListener, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+	db.listen(typeBListener, 'b', { minLat: 5, maxLat: 15, minLong: 5, maxLong: 15 });
 
 	// Objects with the same ids should live in separate realms
 	await db.updateObject({ type: 'a', id: 123, lat: 7, long: 7, name: 'Name A' });

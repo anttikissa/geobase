@@ -15,7 +15,7 @@ class Connection {
 	set active(value) {
 		this._active = value;
 		if (!value) {
-			db.removeListener(this);
+			db.stopListening(this);
 		}
 	}
 
@@ -70,7 +70,7 @@ class Connection {
 				this.send('PONG', data);
 			} else if (cmd === 'LISTEN') {
 				if (!data) {
-					let listeners = db.getAllListeningTypes().map(type => db.getListener(this, type));
+					let listeners = db.getAllListeningTypes().map(type => db.getListeningProfile(this, type));
 					this.send('OK', listeners.filter(Boolean));
 					return;
 				}
@@ -80,7 +80,7 @@ class Connection {
 
 				const { type, ...bounds } = data;
 
-				db.addListener(this, type, bounds);
+				db.listen(this, type, bounds);
 				this.send('OK', "I'll keep you posted, dear.");
 			} else if (cmd === 'GET') {
 				const { type, id, ...bounds } = data;
