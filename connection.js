@@ -80,8 +80,9 @@ class Connection {
 
 				const { type, ...bounds } = data;
 
-				db.listen(this, type, bounds);
 				this.send('OK', "I'll keep you posted, dear.");
+				await db.listen(this, type, bounds);
+
 			} else if (cmd === 'GET') {
 				const { type, id, ...bounds } = data;
 				let result;

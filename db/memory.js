@@ -80,7 +80,7 @@ class MemoryDb {
 	//   { type: 'b', minLat: 10, maxLat: 20, minLong: 10, maxLong: 20 }
 	//
 	// You can query listening profiles by getListeningProfile(listener, type).
-	listen(listener, type, { minLat, maxLat, minLong, maxLong }) {
+	async listen(listener, type, { minLat, maxLat, minLong, maxLong }) {
 		function cleanObject(obj) {
 			for (let key in obj) {
 				if (obj[key] === undefined) {
@@ -109,6 +109,14 @@ class MemoryDb {
 		} else {
 			check(props);
 			listenersMap.set(listener, props);
+
+			// Update the listener asynchronously.
+			let allObjects = await this.getAll(type, props);
+			if (listener.onUpdate) {
+				for (let object of allObjects) {
+					listener.onUpdate(object);
+				}
+			}
 		}
 	}
 

@@ -1,4 +1,5 @@
 const MemoryDb = require('./memory');
+const log = console.log;
 
 let db;
 
@@ -30,6 +31,22 @@ test('listen', async () => {
 	expect(mapSize(db.getListeners('a'))).toBe(0);
 });
 
+test('listen with existing data', async () => {
+	await db.updateObject({ type: 'a', id: 1, lat: 5, long: 5, name: 'X' });
+	await db.updateObject({ type: 'a', id: 2, lat: 15, long: 5, name: 'Y' });
+	await db.updateObject({ type: 'a', id: 3, lat: 7, long: 7, name: 'Z' });
+
+	const connection = {
+		onUpdate: jest.fn()
+	};
+
+	await db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+
+	expect(connection.onUpdate.mock.calls.length).toBe(2);
+	expect(connection.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 1, lat: 5, long: 5, name: 'X' });
+	expect(connection.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 3, lat: 7, long: 7, name: 'Z' });
+});
+
 test('getListeningProfile', async () => {
 	const connection = {};
 
@@ -51,24 +68,32 @@ test('listen that changes listener props', async () => {
 test('listen parameter check', async () => {
 	const listener = {};
 
-	expect(() => {
-		db.listen(listener, 123, {});
-	}).toThrow('type is not of type string: 123');
+	// TODO wonder if Jest can do this one day
+	function expectPromiseToRejectWithMessage(promise, message) {
+		promise.then(fail).catch(err => {
+			expect(err.message).toBe(message);
+		});
+	}
 
-	expect(() => {
-		db.listen(listener, 'a', { minLat: '5.55' });
-	}).toThrow('minLat is not of type number: 5.55');
+	expectPromiseToRejectWithMessage(
+		db.listen(listener, 123, {}),
+		'type is not of type string: 123'
+	);
 
+	expectPromiseToRejectWithMessage(db.listen(listener, 'a', { minLat: '5.55' }),
+		'minLat is not of type number: 5.55'
+	);
 
-	expect(() => {
-		db.listen(listener, 'a', { minLat: 5.55 });
-	}).toThrow('maxLat is not of type number: undefined');
+	expectPromiseToRejectWithMessage(db.listen(listener, 'a', { minLat: 5.55 }),
+		'maxLat is not of type number: undefined'
+	);
 
 	// Updating an existing listener, the changing property is checked:
 	db.listen(listener, 'a', { minLat: 0, maxLat: 1, minLong: 0, maxLong: 1 });
-	expect(() => {
-		db.listen(listener, 'a', { maxLong: 'hello' });
-	}).toThrow('maxLong is not of type number: hello');
+	expectPromiseToRejectWithMessage(
+		db.listen(listener, 'a', { maxLong: 'hello' }),
+		'maxLong is not of type number: hello'
+	);
 });
 
 test('getAllListeningTypes (internal)', async() => {
