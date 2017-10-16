@@ -31,6 +31,14 @@ test('listen', async () => {
 	expect(mapSize(db.getListeners('a'))).toBe(0);
 });
 
+test('getListeningProfile', async () => {
+	const connection = {};
+
+	db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+
+	expect(db.getListeningProfile(connection, 'a')).toEqual({ type: 'a', minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+});
+
 test('listen with existing data', async () => {
 	await db.updateObject({ type: 'a', id: 1, lat: 5, long: 5, name: 'X' });
 	await db.updateObject({ type: 'a', id: 2, lat: 15, long: 5, name: 'Y' });
@@ -47,14 +55,6 @@ test('listen with existing data', async () => {
 	expect(connection.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 3, lat: 7, long: 7, name: 'Z' });
 });
 
-test('getListeningProfile', async () => {
-	const connection = {};
-
-	db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
-
-	expect(db.getListeningProfile(connection, 'a')).toEqual({ type: 'a', minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
-});
-
 test('listen that changes listener props', async () => {
 	const connection = {};
 
@@ -63,6 +63,29 @@ test('listen that changes listener props', async () => {
 
 	db.listen(connection, 'a', { minLat: -5, maxLong: 5 });
 	expect(db.getListeningProfile(connection, 'a')).toEqual({ type: 'a', minLat: -5, maxLat: 10, minLong: 0, maxLong: 5 });
+});
+
+test('listen with existing data and changing properties', async () => {
+	await db.updateObject({ type: 'a', id: 1, lat: 5, long: 5, name: 'X' });
+	await db.updateObject({ type: 'a', id: 2, lat: 8, long: 7, name: 'Y' });
+	await db.updateObject({ type: 'a', id: 3, lat: 11, long: 7, name: 'Z' });
+	await db.updateObject({ type: 'a', id: 4, lat: 11, long: 12, name: 'W' });
+
+	const connection = {
+		onUpdate: jest.fn()
+	};
+
+	await db.listen(connection, 'a', { minLat: 0, maxLat: 10, minLong: 0, maxLong: 10 });
+
+	expect(connection.onUpdate.mock.calls.length).toBe(2);
+	expect(connection.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 1, lat: 5, long: 5, name: 'X' });
+	expect(connection.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 2, lat: 8, long: 7, name: 'Y' });
+
+	await db.listen(connection, 'a', { minLat: 6, maxLat: 12, minLong: 7, maxLong: 15 });
+
+	expect(connection.onUpdate.mock.calls.length).toBe(4);
+	expect(connection.onUpdate.mock.calls[2][0]).toEqual({ type: 'a', id: 3, lat: 11, long: 7, name: 'Z' });
+	expect(connection.onUpdate.mock.calls[3][0]).toEqual({ type: 'a', id: 4, lat: 11, long: 12, name: 'W' });
 });
 
 test('listen parameter check', async () => {

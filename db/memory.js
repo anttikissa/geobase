@@ -18,27 +18,46 @@ class MemoryDb {
 		return this.getObjects(type).get(id);
 	}
 
-	// Return array of objects filtered by bounds (optionally)
-	async getAll(type, bounds) {
+	// Return array of objects filtered by bounds.
+	// If bounds is defined, return only objects within bounds.
+	// If excludeBounds is defined, return only object not within excludeBounds.
+	async getAll(type, bounds = {}, excludeBounds = undefined) {
+		bounds = Object.assign({
+			minLat: -Infinity,
+			maxLat: Infinity,
+			minLong: -Infinity,
+			maxLong: Infinity
+		}, bounds);
+		if (excludeBounds) {
+			excludeBounds = Object.assign({
+				minLat: -Infinity,
+				maxLat: Infinity,
+				minLong: -Infinity,
+				maxLong: Infinity
+			}, excludeBounds);
+		}
 		const objects = this.getObjects(type);
 		const values = [...objects.values()];
 
-		if (!bounds) {
-			return values;
-		} else {
-			const filtered = values.filter(value => {
-				if (bounds.hasOwnProperty('minLat') != null && value.lat < bounds.minLat)
-					return false;
-				if (bounds.hasOwnProperty('maxLat') != null && value.lat > bounds.maxLat)
-					return false;
-				if (bounds.hasOwnProperty('minLong') != null && value.long < bounds.minLong)
-					return false;
-				if (bounds.hasOwnProperty('maxLong') != null && value.long > bounds.maxLong)
-					return false;
-				return true;
-			});
-			return filtered;
+		function withinBounds(value, bounds) {
+			if (value.lat < bounds.minLat)
+				return false;
+			if (value.lat > bounds.maxLat)
+				return false;
+			if (value.long < bounds.minLong)
+				return false;
+			if (value.long > bounds.maxLong)
+				return false;
+			return true;
 		}
+		const filtered = values.filter(value => {
+			if (excludeBounds) {
+				return withinBounds(value, bounds) && !withinBounds(value, excludeBounds);
+			} else {
+				return withinBounds(value, bounds);
+			}
+		});
+		return filtered;
 	}
 
 	getListeners(type) {
@@ -82,7 +101,7 @@ class MemoryDb {
 	// You can query listening profiles by getListeningProfile(listener, type).
 	async listen(listener, type, { minLat, maxLat, minLong, maxLong }) {
 		function cleanObject(obj) {
-			for (let key in obj) {
+			for (let key of Object.keys(obj)) {
 				if (obj[key] === undefined) {
 					delete obj[key];
 				}
@@ -90,7 +109,7 @@ class MemoryDb {
 		}
 
 		const listenersMap = this.getListeners(type);
-		let existingProps = listenersMap.get(listener);
+		let originalProps = listenersMap.get(listener);
 		let props = { type, minLat, maxLat, minLong, maxLong };
 		cleanObject(props);
 
@@ -102,20 +121,25 @@ class MemoryDb {
 			checkType(props.maxLong, 'number', 'maxLong');
 		}
 
-		if (existingProps) {
-			let updatedProps = Object.assign({}, existingProps, props);
+		let objectsToUpdate;
+
+		if (originalProps) {
+			let updatedProps = Object.assign({}, originalProps, props);
 			check(updatedProps);
 			listenersMap.set(listener, updatedProps);
+			objectsToUpdate = await this.getAll(type, updatedProps, originalProps);
+
 		} else {
 			check(props);
 			listenersMap.set(listener, props);
 
 			// Update the listener asynchronously.
-			let allObjects = await this.getAll(type, props);
-			if (listener.onUpdate) {
-				for (let object of allObjects) {
-					listener.onUpdate(object);
-				}
+			objectsToUpdate = await this.getAll(type, props);
+		}
+
+		if (listener.onUpdate) {
+			for (let object of objectsToUpdate) {
+				listener.onUpdate(object);
 			}
 		}
 	}
