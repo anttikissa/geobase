@@ -168,55 +168,84 @@ class MemoryDb {
 		return result;
 	}
 
-	async updateObject(object) {
-		checkType(object.type, 'string', 'type');
-		checkType(object.id, 'number', 'id');
+	// Inform that object identified with `object.type` and `object.id` has been
+	// updated.
+	//
+	// The optional `timestamp` argument tells when the object changed and defaults
+	// to a monotonically increasing clock value (such as Date.now()). Its main use
+	// is testing (so that tests don't need to rely on the wall clock).
+	//
+	// Calling updateObject() causes all listeners whose listening bounds include the
+	// object's location (either old, or the new location, in case it changed) to be
+	// called. If the object didn't exist before, .onCreate() is called; if it did,
+	// .onUpdate() is called (regardless of whether the object was within the listener's
+	// bounds before the update or not).
+	async updateObject(changes, timestamp /* TODO not used */) {
+		checkType(changes.type, 'string', 'type');
+		checkType(changes.id, 'number', 'id');
 
-		let changes = object;
-		const existingObject = (await this.getObjects(object.type)).get(object.id);
+		const existingObject = (await this.getObjects(changes.type)).get(changes.id);
 		let objectWasMoved = false;
 		let originalLocation; // Only if we had an object before. Needed if it was moved.
-		if (existingObject) {
-			changes = MemoryDb.objectDiff(existingObject, object);
-			objectWasMoved = typeof changes.lat === 'number' || typeof changes.long === 'number';
-			originalLocation = { type: object.type, lat: existingObject.lat, long: existingObject.long };
 
-			Object.assign(existingObject, object);
+		// actualChanges will contain the properties that really changed and that will be sent
+		// to the listeners that had knowledge of this object before the update.
+		//
+		// If object was before { type: 'a', id: 1, lat: 5, long: 5, name: 'Hello', age: 10 } and
+		// and `changes` was { type: 'a', id: 1, lat: 6, long: 5, name: 'Hello', age: 20 },
+		// Then `actualChanges` will become { lat: 6, age: 20 }
+		let actualChanges = changes;
+
+		// wholeObject has all of the object's properties. Needed if object's location changes and it
+		// acquires a new listener, who needs to be told about the object in whole.
+		let wholeObject = changes;
+
+		if (existingObject) {
+			actualChanges = MemoryDb.objectDiff(existingObject, changes);
+
+			objectWasMoved = typeof actualChanges.lat === 'number' || typeof actualChanges.long === 'number';
+
+			originalLocation = { type: changes.type, lat: existingObject.lat, long: existingObject.long };
+
+			Object.assign(existingObject, changes);
+			wholeObject = existingObject;
 		} else {
 			// New object: must have lat, long to be indexed
-			checkType(object.lat, 'number', 'lat');
-			checkType(object.long, 'number', 'long');
+			checkType(changes.lat, 'number', 'lat');
+			checkType(changes.long, 'number', 'long');
 
-			(await this.getObjects(object.type)).set(object.id, object);
+			(await this.getObjects(changes.type)).set(changes.id, changes);
 		}
 
 		const objectWasCreated = !existingObject;
 
 		// Object not updated - no need to broadcast
-		if (Object.keys(changes).length === 0) {
-			return { created: objectWasCreated, moved: objectWasMoved, object: object, changes: changes };
+		if (Object.keys(actualChanges).length === 0) {
+			return { created: objectWasCreated, moved: objectWasMoved, object: changes, changes: actualChanges };
 		}
 
-		const changesWithTypeAndId = Object.assign({ type: object.type, id: object.id }, changes);
+		const changesWithTypeAndId = Object.assign({ type: changes.type, id: changes.id }, actualChanges);
 
-		for (const [listener, props] of this.getListeners(object.type)) {
+		for (const [listener, props] of this.getListeners(changes.type)) {
 
 			// If object was moved, we need to check the old and new location for listener bounds.
 			// And in that case, we don't need to take into account the possibility that object
 			// was created.
 			if (objectWasMoved) {
-
-				let listenerWithinBoundsNow = MemoryDb.checkBounds(object, props);
+				let listenerWithinBoundsNow = MemoryDb.checkBounds(changes, props);
 				let listenerWithinBoundsBefore = MemoryDb.checkBounds(originalLocation, props);
 				if (listenerWithinBoundsNow || listenerWithinBoundsBefore) {
 					// When the listener hears about the object first time, i.e. listenerWithinBoundsBefore
 					// is not true, we must send them the whole object instead of just the changes.
-					listener.onUpdate && listener.onUpdate(listenerWithinBoundsBefore ? changesWithTypeAndId : object);
+
+					listener.onUpdate && listener.onUpdate(listenerWithinBoundsBefore
+						? changesWithTypeAndId
+						: wholeObject);
 				}
 			} else {
-				if (MemoryDb.checkBounds(object, props)) {
+				if (MemoryDb.checkBounds(changes, props)) {
 					if (objectWasCreated) {
-						listener.onCreate && listener.onCreate(object);
+						listener.onCreate && listener.onCreate(wholeObject);
 					} else {
 						listener.onUpdate && listener.onUpdate(changesWithTypeAndId);
 					}
@@ -224,7 +253,7 @@ class MemoryDb {
 			}
 		}
 
-		return { created: objectWasCreated, moved: objectWasMoved, object: object, changes: changes };
+		return { created: objectWasCreated, moved: objectWasMoved, object: changes, changes: actualChanges };
 	}
 
 	async deleteObject({ type, id }) {

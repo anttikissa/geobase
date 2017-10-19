@@ -334,21 +334,21 @@ test('changing object location', async () => {
 
 	expect(region1Listener.onCreate.mock.calls.length).toBe(1);
 
-	// Move object within one region
-	await db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'New name' });
+	// Move object within one region.
+	await db.updateObject({ type: 'a', id: 123, lat: 6, long: 5, name: 'New name', age: 20 });
 
 	expect(region1Listener.onUpdate.mock.calls.length).toBe(1);
-	expect(region1Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 6, name: 'New name' });
+	expect(region1Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 6, name: 'New name', age: 20 });
 
-	// Move object from region to another
-	await db.updateObject({ type: 'a', id: 123, lat: 15, long: 15, name: 'New name' });
+	// Move object from region to another, change its name at the same time
+	await db.updateObject({ type: 'a', id: 123, lat: 15, long: 15, name: 'Name 2' });
 
 	expect(region1Listener.onUpdate.mock.calls.length).toBe(2);
-	expect(region1Listener.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15 });
+	expect(region1Listener.onUpdate.mock.calls[1][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15, name: 'Name 2' });
 
-	// New listener must be called with all object properties
+	// New listener must be called with all object properties, including those that it had before
 	expect(region2Listener.onUpdate.mock.calls.length).toBe(1);
-	expect(region2Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15, name: 'New name' });
+	expect(region2Listener.onUpdate.mock.calls[0][0]).toEqual({ type: 'a', id: 123, lat: 15, long: 15, name: 'Name 2', age: 20 });
 });
 
 test('different kinds of objects do not affect each other', async () => {
