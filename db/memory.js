@@ -168,21 +168,27 @@ class MemoryDb {
 		return result;
 	}
 
-	// Inform that object identified with `object.type` and `object.id` has been
+	// Inform that object identified with `changes.type` and `changes.id` has been
 	// updated.
-	//
-	// The optional `timestamp` argument tells when the object changed and defaults
-	// to a monotonically increasing clock value (such as Date.now()). Its main use
-	// is testing (so that tests don't need to rely on the wall clock).
 	//
 	// Calling updateObject() causes all listeners whose listening bounds include the
 	// object's location (either old, or the new location, in case it changed) to be
 	// called. If the object didn't exist before, .onCreate() is called; if it did,
 	// .onUpdate() is called (regardless of whether the object was within the listener's
 	// bounds before the update or not).
-	async updateObject(changes, timestamp /* TODO not used */) {
+	//
+	// You can include a version number with the changes (`changes.v`). The version number
+	// should be monotonically increasing within a given type. If you don't specify a version,
+	// the database will provide come up with one.
+	async updateObject(changes) {
 		checkType(changes.type, 'string', 'type');
 		checkType(changes.id, 'number', 'id');
+
+		if (changes.v) {
+			checkType(changes.v, 'number', 'v');
+		} else {
+			changes.v = Date.now();
+		}
 
 		const existingObject = (await this.getObjects(changes.type)).get(changes.id);
 		let objectWasMoved = false;
