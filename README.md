@@ -1,5 +1,11 @@
 # Geobase
 
+## Intro
+
+Clients connect to the server and create and update objects. They can
+also ask the server to keep them updated within a certain region. All
+objects have a type (a string), latitude and longitude.
+
 ## Wire protocol, example
 
 ```
@@ -97,4 +103,26 @@ Something went wrong.
 ### NOTFOUND
 
 An object was not found. (Might be joined with ERROR some day)
+
+## BUGS / TODO
+
+- Implement persistence.
+
+- The client should be able to catch up with the latest changes with the
+  GET command. The GET command should have an argument for the last seen
+  timestamp / version and the server should update only the changed
+  ones.  Now the client must update the whole dataset they're interested
+  in upon reconnect.
+
+- (Make sure that deleted objects are treated right in the above case.)
+
+- There might have been some kind of bug with DELETE statement, not sure
+  if my memory serves well
+
+- Make `type` optional - not every application needs them, also would make
+the examples simpler.
+
+- Maybe make lat/long into x/y.
+
+- Better error messages for missing/extra parameters etc.
 
