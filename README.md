@@ -3,7 +3,7 @@
 ## Wire protocol, example
 
 ```
-< UPDATEME { type: 'partner', latMin: 60.12, latMax, 60.45, longMin: 24.85, longMax: 25.41 }
+< UPDATEME { type: 'partner', latMin: 60.12, latMax: 60.45, longMin: 24.85, longMax: 25.41 }
 > DATA [
   { type: 'partner', timestamp: '2017-10-11 00:04:37.652Z', id: 526, lat: 60.4, long: 24.91, name: 'Some Place', offersLeft: 3 },
   { type: 'partner', timestamp: '2017-10-11 00:02:37.652Z', id: 627, lat: 60.34, long: 25.1, name: 'Another Place', offersLeft: 3 }
@@ -13,7 +13,7 @@
 < UPDATEME { type: 'partner', latMin: 60.22, latMax: 60.55, longMin: 24.85, longMax: 25.41 }
 ```
 
-## The client sends *commands* to the server:
+## The client sends commands to the server:
 
 ### PING
 
@@ -23,7 +23,7 @@ Says hello to the server.
 
 Tells server to send changes from this region. If this is the first time in this session, the server first sends all data from the region in a DATA statement.
 
-## The server sends *statements* to the client:
+## The server sends statements to the client:
 
 ### PONG
 

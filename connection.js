@@ -110,6 +110,8 @@ class Connection {
 						});
 					}
 				}
+			} else {
+				this.send('ERROR', { message: 'Unknown command ' + cmd });
 			}
 		} catch (err) {
 			log('err', err);
