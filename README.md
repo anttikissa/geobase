@@ -10,7 +10,7 @@ region. All objects have an immutable `type` (a string), an immutable
 
 The `id` determines the object identity within the `type`. Objects with
 different types have nothing to do with each other and can therefore
-have overlapping types.
+have overlapping `id`s.
 
 The aim is to build a simplest possible efficient system for a large
 amount of clients to keep track of geospatially distributed data that
