@@ -121,6 +121,9 @@ listening area, but instead replaces your current one. If your listening
 area is enlarged, the server sends you UPDATE statements of the objects
 that you didn't previously listen to.
 
+You can just give one or more of the boundary arguments and only they
+will get updated. This is handy mostly for interactive use.
+
 A LISTEN command without arguments tells your listening area, if any.
 
 ### UPDATE `{ type, id, lat, long, ...data }`
@@ -183,4 +186,18 @@ An object was not found. (Might be joined with ERROR some day)
 - Maybe make lat/long into x/y.
 
 - Better error messages for missing/extra parameters etc.
+
+- Can you LISTEN different types? What happens if you do? I guess it
+  works.
+
+- There is no UNLISTEN - should there be?
+
+- Bug: you get "I'll get you posted" message even if LISTEN fails of
+  missing parameter
+
+- Bug: I said `LISTEN { type: 'x', maxLat: 0, minLat: 1 }`
+  and then deleted an object and got:
+  `DELETE
+  {"type":"x","id":123,"lat":5,"long":5,"data":"foo","v":1534252057163,"name":"Foo"}`.
+  The same didn't happen for update though.
 
