@@ -4,16 +4,22 @@
 
 Clients establish a WebSocket connection to the server. They can create,
 update, and delete objects. Clients can also listen to changes within a
-region. All objects have a type (a string), an id (a number), and a
-location (lat + long). Any other properties can be used freely.
+region. All objects have an immutable `type` (a string), an immutable
+`id` (a number), and increasing version `v`, a `timestamp`, and a
+location (`lat` + `long`) that may change. Any other properties can be
+used freely.
+
+The aim is to build a simplest possible efficient system for a large
+amount of clients to keep track of geospatially distributed data that
+changes often. We're not quite there yet. (See the TODO section.)
 
 ## Wire protocol, an example
 
-All communications consist of a command, followed by a space and
-JSON-like data. Uses
-[relaxed-json](https://github.com/phadej/relaxed-json) to parse the
-arguments. The server sends back a statement, following with stringified
-JSON (which can also be a string, in case of error messages.)
+All communications consist of a command followed by a space and
+JSON-like data. [relaxed-json](https://github.com/phadej/relaxed-json)
+is used to parse the arguments. The server sends back a statement
+following with stringified JSON (which can also be a string, in case of
+error messages.)
 
 ```
 > GET { type: 'x' }
@@ -55,6 +61,23 @@ Client 1 gets the updated information:
 UPDATE {"type":"partner","id":10,"long":25.012,"description":"Great place to be","v":1534246397443}
 ```
 
+If an object within your listening area moves outside the area, you will
+get an UPDATE statement of the update that caused it to exit the area,
+but will no longer be updated about that object's changes as long is it
+stays outside the listening area.
+
+If an object update causes it to enter your listening area, you will
+receive all of its properties (instead of only the ones that changed,
+which is the case normally).
+
+## To test it
+
+```
+yarn
+./start
+open http://localhost:3000/
+```
+
 ## The client sends commands to the server:
 
 ### PING
@@ -72,7 +95,7 @@ Tells server to send changes from this region. If this is the first time
 in this session, the server first sends all data from the region with a
 sequence of UPDATE statements.
 
-### UPDATE `{ type, id, lat, long, ...data }
+### UPDATE `{ type, id, lat, long, ...data }`
 
 Creates or updates an object. CREATE or UPDATE statements are issued to
 listening clients.
