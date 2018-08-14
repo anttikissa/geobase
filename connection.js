@@ -68,6 +68,8 @@ class Connection {
 		try {
 			if (cmd === 'PING') {
 				this.send('PONG', data);
+			} else if (cmd === 'PONG') {
+				// Ignore it
 			} else if (cmd === 'LISTEN') {
 				if (!data) {
 					let listeners = db.getAllListeningTypes().map(type => db.getListeningProfile(this, type));
