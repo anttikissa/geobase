@@ -5,9 +5,8 @@
 Clients establish a WebSocket connection to the server. They can create,
 update, and delete objects. Clients can also listen to changes within a
 region. All objects have an immutable `type` (a string), an immutable
-`id` (a number), and increasing version `v`, a `timestamp`, and a
-location (`lat` + `long`) that may change. Any other properties can be
-used freely.
+`id` (a number), and increasing version `v`, and a location (`lat` +
+`long`) that may change. Any other properties can be used freely.
 
 The `id` determines the object identity within the `type`. Objects with
 different types have nothing to do with each other and can therefore
@@ -139,18 +138,18 @@ Used to keep the connection alive.
 
 Response to the GET command.
 
-### UPDATE `{ type: '...', id: ..., timestamp, ...changes }`
+### UPDATE `{ type: '...', id: ..., v, ...changes }`
 
 Tells a listening client that an object was updated.
 
-### CREATE `{ type: '...', id: ..., timestamp, ...attributes }
+### CREATE `{ type: '...', id: ..., v, ...attributes }
 
 Tells a listening client that an object was created. Generally a client
 should treat this in the same way as an UPDATE command, but sometimes it
 may be useful to know which objects were newly created while you were
 connected to the server.
 
-### DELETE `{ type: '...', id: ..., timestamp }`
+### DELETE `{ type: '...', id: ..., v }`
 
 Tells a listening client that an object was deleted.
 
@@ -172,9 +171,9 @@ An object was not found. (Might be joined with ERROR some day)
 
 - The client should be able to catch up with the latest changes with the
   GET command. The GET command should have an argument for the last seen
-  timestamp / version and the server should update only the changed
-  ones.  Now the client must update the whole dataset they're interested
-  in upon reconnect.
+  version and the server should update only the changed ones.  Now the
+  client must update the whole dataset they're interested in upon
+  reconnect.
 
 - (Make sure that deleted objects are treated right in the above case.)
 
