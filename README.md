@@ -89,6 +89,7 @@ which is the case normally).
 ## To test it
 
 ```
+yarn
 ./start
 open http://localhost:3000/
 ```
