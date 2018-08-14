@@ -2,11 +2,18 @@
 
 ## Intro
 
-Clients connect to the server and create and update objects. They can
-also ask the server to keep them updated within a certain region. All
-objects have a type (a string), latitude and longitude.
+Clients establish a WebSocket connection to the server. They can create,
+update, and delete objects. Clients can also listen to changes within a
+region. All objects have a type (a string), an id (a number), and a
+location (lat + long). Any other properties can be used freely.
 
-## Wire protocol, example
+## Wire protocol, an example
+
+All communications consist of a command, followed by a space and
+JSON-like data. Uses
+[relaxed-json](https://github.com/phadej/relaxed-json) to parse the
+arguments. The server sends back a statement, following with stringified
+JSON (which can also be a string, in case of error messages.)
 
 ```
 > GET { type: 'x' }
