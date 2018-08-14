@@ -9,6 +9,10 @@ region. All objects have an immutable `type` (a string), an immutable
 location (`lat` + `long`) that may change. Any other properties can be
 used freely.
 
+The `id` determines the object identity within the `type`. Objects with
+different types have nothing to do with each other and can therefore
+have overlapping types.
+
 The aim is to build a simplest possible efficient system for a large
 amount of clients to keep track of geospatially distributed data that
 changes often. We're not quite there yet. (See the TODO section.)
@@ -61,6 +65,18 @@ Client 1 gets the updated information:
 UPDATE {"type":"partner","id":10,"long":25.012,"description":"Great place to be","v":1534246397443}
 ```
 
+You don't need to specify types (though they show up in server-to-client
+communication as an empty string):
+
+```
+> LISTEN { minLat: 50, maxLat: 70, minLong: 50, maxLong: 70 }
+< OK "I'll keep you posted, dear."
+> UPDATE { id: 1, name: 'Hello', lat: 60, long: 60 }
+< CREATE {"id":1,"name":"Hello","lat":60,"long":60,"type":"","v":1534249726412}
+< CREATED
+{"created":true,"moved":false,"object":{"id":1,"name":"Hello","lat":60,"long":60,"type":"","v":1534249726412},"changes":{"id":1,"name":"Hello","lat":60,"long":60,"type":"","v":1534249726412}}
+```
+
 If an object within your listening area moves outside the area, you will
 get an UPDATE statement of the update that caused it to exit the area,
 but will no longer be updated about that object's changes as long is it
@@ -72,28 +88,39 @@ which is the case normally).
 
 ## To test it
 
-```
-yarn
 ./start
 open http://localhost:3000/
 ```
 
 ## The client sends commands to the server:
 
-### PING
+For all commands that require the `type` argument, you can leave it out,
+in which case the command will behave as if the type were `''`.
 
-Says hello to the server.
+### PING / PONG
+
+Used to keep the connection alive.
 
 ### GET `{ type, minLat, maxLat, minLong, maxLong }`
 
 Gets all objects of type `type` within the range. Boundaries are
-optional.
+optional: `GET { type: 'x' }` gets all objects of type 'x'.
+
+You can also get an object with its id: `GET { type: 'x', id: 1 }`
 
 ### LISTEN `{ type, minLat, maxLat, minLong, maxLong }`
 
 Tells server to send changes from this region. If this is the first time
 in this session, the server first sends all data from the region with a
-sequence of UPDATE statements.
+sequence of UPDATE statements. (This might not be optimal. See TODO
+list)
+
+A subsequent LISTEN command from the same client does not add a new
+listening area, but instead replaces your current one. If your listening
+area is enlarged, the server sends you UPDATE statements of the objects
+that you didn't previously listen to.
+
+A LISTEN command without arguments tells your listening area, if any.
 
 ### UPDATE `{ type, id, lat, long, ...data }`
 
@@ -102,9 +129,9 @@ listening clients.
 
 ## The server sends statements to the client:
 
-### PONG
+### PING / PONG
 
-I heard you.
+Used to keep the connection alive.
 
 ### DATA `[ object1, object2, ... ]`
 
@@ -116,7 +143,10 @@ Tells a listening client that an object was updated.
 
 ### CREATE `{ type: '...', id: ..., timestamp, ...attributes }
 
-Tells a listening client that an object was created.
+Tells a listening client that an object was created. Generally a client
+should treat this in the same way as an UPDATE command, but sometimes it
+may be useful to know which objects were newly created while you were
+connected to the server.
 
 ### DELETE `{ type: '...', id: ..., timestamp }`
 
@@ -148,9 +178,6 @@ An object was not found. (Might be joined with ERROR some day)
 
 - There might have been some kind of bug with DELETE statement, not sure
   if my memory serves well
-
-- Make `type` optional - not every application needs them, also would make
-the examples simpler.
 
 - Maybe make lat/long into x/y.
 

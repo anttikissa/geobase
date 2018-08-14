@@ -7,6 +7,14 @@ const db = new MemoryDb();
 let connections = 0;
 let connectionIdx = 0;
 
+function ensureDataHasType(data) {
+	if (typeof data.type === 'string') {
+		return;
+	}
+
+	data.type = '';
+}
+
 class Connection {
 	get active() {
 		return this._active;
@@ -76,9 +84,8 @@ class Connection {
 					this.send('OK', listeners.filter(Boolean));
 					return;
 				}
-				if (data && !data.type) {
-					throw new Error('type required');
-				}
+
+				ensureDataHasType(data);
 
 				const { type, ...bounds } = data;
 
@@ -86,6 +93,8 @@ class Connection {
 				await db.listen(this, type, bounds);
 
 			} else if (cmd === 'GET') {
+				ensureDataHasType(data);
+
 				const { type, id, ...bounds } = data;
 				let result;
 				if (id) {
@@ -95,9 +104,11 @@ class Connection {
 				}
 				this.send(result ? 'DATA' : 'NOTFOUND', result);
 			} else if (cmd === 'UPDATE') {
+				ensureDataHasType(data);
 				let result = await db.updateObject(data);
 				this.send(result.created ? 'CREATED' : 'UPDATED', result);
 			} else if (cmd === 'DELETE') {
+				ensureDataHasType(data);
 				let result = await db.deleteObject(data);
 				this.send(result.deleted ? 'DELETED' : 'NOTFOUND', result);
 			} else if (cmd === 'TEST') {
