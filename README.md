@@ -88,6 +88,7 @@ which is the case normally).
 
 ## To test it
 
+```
 ./start
 open http://localhost:3000/
 ```
